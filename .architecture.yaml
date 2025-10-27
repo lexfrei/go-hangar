@@ -1,0 +1,512 @@
+# .architecture.yaml - go-hangar Project Architecture
+# Version: 1.0.0
+# Last Updated: 2025-10-27
+# Maintainer: Aleksei Sviridkin <f@lex.la>
+
+metadata:
+  repository:
+    name: "go-hangar"
+    type: "application+library"
+    description: "CLI tool and Go library for PaperMC Hangar API"
+    owner: "f@lex.la"
+    url: "https://github.com/lexfrei/go-hangar"
+
+  language:
+    primary: "go"
+    version: "1.25"
+    modules: true
+
+  version: "1.0.0"
+  last_updated: "2025-10-27"
+
+technical_stack:
+  language:
+    primary: "go"
+    version: "1.25"
+    justification: "Latest stable Go version with improved performance and tooling"
+
+  frameworks:
+    cli:
+      library: "github.com/spf13/cobra"
+      version: "v1.8.1"
+      purpose: "CLI framework for commands and subcommands"
+      justification: "Industry standard (kubectl, gh, docker), excellent cobra+viper integration"
+
+    config:
+      library: "github.com/spf13/viper"
+      version: "v1.19.0"
+      purpose: "Configuration management (files, env vars, flags)"
+      justification: "Native cobra integration, multi-source config, battle-tested"
+
+    testing:
+      library: "github.com/stretchr/testify"
+      version: "v1.9.0"
+      purpose: "Test assertions, mocks, and suites"
+      justification: "Most popular testing library, rich assertions, built-in mocks"
+
+    http_client:
+      library: "net/http"
+      version: "stdlib"
+      purpose: "HTTP client for Hangar API"
+      justification: "Simple REST API needs, no external deps, full control, stdlib reliability"
+
+    validation:
+      library: "github.com/go-playground/validator/v10"
+      version: "v10.22.1"
+      purpose: "Struct validation for API models"
+      justification: "Declarative tags, extensive rules, ecosystem standard"
+
+    output:
+      library: "github.com/jedib0t/go-pretty/v6"
+      version: "v6.6.1"
+      purpose: "Formatted table and colored output"
+      justification: "Beautiful CLI output, table support, not too heavy"
+
+  libraries:
+    errors:
+      library: "github.com/cockroachdb/errors"
+      version: "v1.11.3"
+      purpose: "Error handling with stack traces and context"
+      justification: "Maintained pkg/errors fork, excellent debugging, context wrapping"
+
+    logging:
+      library: "log/slog"
+      version: "stdlib"
+      purpose: "Structured logging"
+      justification: "Standard library, structured logging, context support, performance"
+
+    json:
+      library: "encoding/json"
+      version: "stdlib"
+      purpose: "JSON encoding/decoding for API"
+      justification: "Performance not critical for CLI, universal compatibility, stdlib reliability"
+
+    context:
+      library: "context"
+      version: "stdlib"
+      purpose: "Cancellation, timeouts, request scoping"
+      justification: "Essential for HTTP clients, graceful shutdown, standard practice"
+
+  standards:
+    naming:
+      conventions: "Go conventions (MixedCaps for exported, mixedCaps for unexported)"
+      files: "lowercase with underscores (user_service.go, http_client.go)"
+      packages: "lowercase single word (hangar, client, config)"
+      interfaces: "Noun or Agent noun (Reader, Handler, Validator)"
+
+    errors:
+      approach: "Always wrap with context using cockroachdb/errors"
+      pattern: "errors.Wrap(err, \"context description\")"
+      sentinel: "Define package-level errors for known conditions"
+      checking: "Use errors.Is() and errors.As() for comparison"
+
+    logging:
+      framework: "slog with structured fields"
+      levels: "DEBUG for dev, INFO for important events, WARN for recoverable, ERROR for failures"
+      pattern: "slog.Info(\"message\", \"key\", value, \"key2\", value2)"
+      context: "Always include relevant context (user_id, plugin_name, etc.)"
+
+    testing:
+      approach: "TDD (RED → GREEN → REFACTOR)"
+      coverage: ">80% for all packages"
+      style: "Table-driven tests with subtests"
+      naming: "TestFunctionName_Scenario_ExpectedBehavior"
+      mocks: "Use testify/mock for interfaces"
+      fixtures: "testdata/ directory for test files"
+
+    validation:
+      approach: "Validate at boundaries (API input, config loading)"
+      pattern: "Use struct tags with validator package"
+      custom: "Implement custom validators for domain logic"
+
+    api_client:
+      timeout: "30s default, configurable"
+      retries: "3 attempts with exponential backoff"
+      context: "Always pass context.Context from caller"
+      headers: "User-Agent, Accept, Authorization if token present"
+
+    configuration:
+      precedence: "flags > env vars > config file > defaults"
+      env_prefix: "HANGAR_"
+      config_file: "~/.config/hangar/config.yaml"
+      required: ["api_base_url"]
+      optional: ["api_token", "output_format", "timeout"]
+
+infrastructure:
+  containerization:
+    base_images: "gcr.io/distroless/static-debian12:nonroot"
+    build_images: "golang:1.25-alpine"
+    security: "Non-root user, no shell, minimal attack surface"
+    registry: "ghcr.io"
+
+  ci_cd:
+    platform: "GitHub Actions"
+    triggers: ["push", "pull_request"]
+    checks:
+      - "golangci-lint (ALL errors must be fixed)"
+      - "go test -race -coverprofile"
+      - "go build (all platforms)"
+      - "docker/podman build"
+    coverage_threshold: "80%"
+
+  distribution:
+    binary: "Multi-platform builds (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64)"
+    container: "OCI image via podman"
+    package: "GitHub Releases with checksums"
+
+structure:
+  layout: "standard-go-project-layout"
+  organization:
+    cmd:
+      purpose: "Application entry points"
+      structure:
+        - "cmd/hangar/ - CLI application main"
+        - "cmd/hangar/main.go - Entry point with graceful shutdown"
+
+    internal:
+      purpose: "Private application code (not importable)"
+      structure:
+        - "internal/client/ - HTTP client for Hangar API"
+        - "internal/config/ - Configuration loading and validation"
+        - "internal/cli/ - CLI command implementations"
+        - "internal/models/ - Internal data structures"
+
+    pkg:
+      purpose: "Public library code (importable by external projects)"
+      structure:
+        - "pkg/hangar/ - Public API for library usage"
+        - "pkg/hangar/client.go - Main client interface"
+        - "pkg/hangar/types.go - Public types and models"
+        - "pkg/hangar/errors.go - Public error types"
+
+    test:
+      purpose: "Test utilities and fixtures"
+      structure:
+        - "testdata/ - Test fixtures and sample responses"
+        - "internal/*/testing.go - Package-specific test helpers"
+
+  dependencies:
+    cmd_to_internal: "✓ Allowed (application uses internal packages)"
+    cmd_to_pkg: "✓ Allowed (application uses public API)"
+    internal_to_pkg: "✗ Forbidden (internal should not depend on pkg)"
+    pkg_to_internal: "✗ Forbidden (public API cannot use internal)"
+    pkg_to_external: "✓ Minimal (only essential deps in public API)"
+
+api_integration:
+  hangar_api:
+    base_url: "https://hangar.papermc.io/api/v1"
+    documentation: "https://hangar.papermc.io/api-docs"
+    authentication: "Optional API token via Authorization header"
+    rate_limiting: "Respect X-RateLimit-* headers"
+
+  endpoints:
+    projects:
+      list: "GET /projects"
+      get: "GET /projects/{slug}"
+      versions: "GET /projects/{slug}/versions"
+
+    versions:
+      get: "GET /projects/{slug}/versions/{version}"
+      download: "GET /projects/{slug}/versions/{version}/download"
+
+    pagination:
+      query_params: ["limit", "offset"]
+      default_limit: 25
+      max_limit: 100
+
+environment_variables:
+  HANGAR_API_TOKEN:
+    description: "Optional API token for authenticated requests"
+    required: false
+    example: "your_api_token_here"
+
+  HANGAR_API_BASE_URL:
+    description: "Base URL for Hangar API"
+    required: false
+    default: "https://hangar.papermc.io/api/v1"
+
+  HANGAR_CONFIG:
+    description: "Path to config file"
+    required: false
+    default: "~/.config/hangar/config.yaml"
+
+  HANGAR_OUTPUT_FORMAT:
+    description: "Output format (table, json, yaml)"
+    required: false
+    default: "table"
+
+  HANGAR_TIMEOUT:
+    description: "API request timeout in seconds"
+    required: false
+    default: "30"
+
+  HANGAR_LOG_LEVEL:
+    description: "Logging level (debug, info, warn, error)"
+    required: false
+    default: "info"
+
+quality_gates:
+  linting:
+    tool: "golangci-lint"
+    config: ".golangci.yaml"
+    strictness: "ALL errors must be fixed before push"
+    disabled_linters: []
+    enabled_linters: ["gofmt", "goimports", "govet", "errcheck", "staticcheck", "gosec", "misspell", "godot", "funlen"]
+
+  testing:
+    framework: "go test with testify"
+    coverage: ">80% required"
+    race_detector: "Always enabled (-race flag)"
+    parallel: "Use t.Parallel() where safe"
+
+  security:
+    secrets: "Never commit tokens or credentials"
+    dependencies: "Regular updates via dependabot"
+    scanning: "gosec for security issues"
+
+decisions:
+  - id: ADR-001
+    date: 2025-10-27
+    status: accepted
+    decision: "Use cobra for CLI framework"
+    reasoning: "Industry standard used by kubectl, gh, docker. Excellent documentation, native viper integration, supports both CLI and library usage patterns. Active maintenance and wide adoption make it the safest choice."
+    alternatives:
+      - "urfave/cli: Simpler but less features, smaller ecosystem"
+      - "kingpin: Less maintained, smaller community"
+      - "stdlib flag: Too manual, no subcommands support"
+    impact: "All CLI code, command structure, flag handling. Affects cmd/hangar/ and internal/cli/"
+
+  - id: ADR-002
+    date: 2025-10-27
+    status: accepted
+    decision: "Use stdlib net/http for HTTP client"
+    reasoning: "Hangar API is simple REST with no complex requirements. Stdlib provides full control, zero external dependencies for core functionality, easy testing with httptest, and performance/security updates via Go releases. Retries can be added manually if needed."
+    alternatives:
+      - "resty: Too many features for simple REST API"
+      - "go-retryablehttp: Single purpose, can add manually if needed"
+    impact: "HTTP client implementation in internal/client/ and pkg/hangar/"
+
+  - id: ADR-003
+    date: 2025-10-27
+    status: accepted
+    decision: "Use viper for configuration management"
+    reasoning: "Native cobra integration, supports multiple config sources (file, env, flags) with proper precedence. Battle-tested in Kubernetes ecosystem. Supports YAML/JSON/TOML and config file watching for future daemon mode."
+    alternatives:
+      - "envconfig: Too simple, env-only, no file support"
+      - "koanf: Less ecosystem adoption, newer"
+    impact: "Configuration loading in internal/config/, CLI flag binding"
+
+  - id: ADR-004
+    date: 2025-10-27
+    status: accepted
+    decision: "Use testify for testing framework"
+    reasoning: "Most popular Go testing library. Rich assertions (assert/require), built-in mock framework, suite support for setup/teardown. Works seamlessly with stdlib testing package. Better developer experience than pure stdlib."
+    alternatives:
+      - "gomock: Interface-focused, more boilerplate"
+      - "mockery: Code generation overhead"
+      - "stdlib only: Too verbose, no assertions"
+    impact: "All test code across project, mock generation"
+
+  - id: ADR-005
+    date: 2025-10-27
+    status: accepted
+    decision: "Use go-playground/validator for validation"
+    reasoning: "Struct tag-based validation is clean and declarative. Extensive built-in rules (required, url, email, min/max). Used by major frameworks (gin, echo). Better for struct-heavy API models. Supports custom validators for domain logic."
+    alternatives:
+      - "ozzo-validation: Code-based, more verbose for API models"
+    impact: "API model validation in internal/models/ and pkg/hangar/"
+
+  - id: ADR-006
+    date: 2025-10-27
+    status: accepted
+    decision: "Use stdlib encoding/json for JSON handling"
+    reasoning: "Performance is not critical for CLI tool. Universal compatibility, no code generation needed, simpler debugging. Standard library reliability and can optimize later if profiling shows need."
+    alternatives:
+      - "jsoniter: Drop-in replacement but unnecessary optimization"
+      - "easyjson: Code generation overhead for minimal gain"
+    impact: "JSON encoding/decoding throughout codebase"
+
+  - id: ADR-007
+    date: 2025-10-27
+    status: accepted
+    decision: "Use go-pretty for output formatting"
+    reasoning: "Beautiful table output for plugin lists, color support for better UX. Both table and plain text modes. Not too heavy unlike full TUI frameworks. Perfect for CLI tools showing structured data with fallback to text/tabwriter for simple cases."
+    alternatives:
+      - "text/template: Too manual, no table support"
+      - "bubbletea: TUI framework is overkill for simple CLI"
+    impact: "Output formatting in internal/cli/ commands"
+
+  - id: ADR-008
+    date: 2025-10-27
+    status: accepted
+    decision: "Use cockroachdb/errors for error handling"
+    reasoning: "Maintained fork of deprecated pkg/errors. Provides stack traces for debugging, context wrapping, backwards compatible with stdlib errors. Essential for tracing errors through API → internal → CLI layers."
+    alternatives:
+      - "pkg/errors: Deprecated and unmaintained"
+      - "stdlib errors: No stack traces, basic wrapping only"
+    impact: "Error handling throughout entire codebase"
+
+  - id: ADR-009
+    date: 2025-10-27
+    status: accepted
+    decision: "Use stdlib log/slog for logging"
+    reasoning: "Standard library structured logging with good performance. Context support, multiple handlers (JSON, text), no external dependencies. Sufficient for CLI tool needs with optional JSON output for automation."
+    alternatives:
+      - "logrus: Maintenance mode, moving to slog"
+      - "zap: Overkill for CLI tool, complex setup"
+      - "zerolog: Fast but slog is stdlib"
+    impact: "Logging throughout application, especially internal/client/ and cmd/hangar/"
+
+  - id: ADR-010
+    date: 2025-10-27
+    status: accepted
+    decision: "Separate cmd/, internal/, and pkg/ structure"
+    reasoning: "Standard Go project layout. cmd/ for CLI entry point, internal/ for private implementation (client, config, CLI handlers), pkg/ for public library API. This allows external projects to import pkg/hangar/ while keeping implementation details private. Clear separation of concerns."
+    alternatives:
+      - "Flat structure: Hard to maintain, no public API"
+      - "cmd/ + pkg/ only: Exposes too much internals"
+    impact: "Entire project structure, import paths, public API design"
+
+  - id: ADR-011
+    date: 2025-10-27
+    status: accepted
+    decision: "TDD approach with >80% coverage requirement"
+    reasoning: "Test-Driven Development ensures better design, API client code is critical and needs extensive testing. Mock HTTP responses via httptest. Table-driven tests for multiple scenarios. Race detector for concurrency safety."
+    alternatives:
+      - "Write tests after: Risk of untestable code"
+      - "Lower coverage: Risk of bugs in API handling"
+    impact: "Development workflow, all packages require tests first"
+
+  - id: ADR-012
+    date: 2025-10-27
+    status: accepted
+    decision: "Support both CLI and library usage patterns"
+    reasoning: "Project serves dual purpose: CLI tool for end users and Go library for developers. pkg/hangar/ provides clean public API, internal/cli/ wraps it for commands. This maximizes project value and adoption."
+    alternatives:
+      - "CLI only: Limits reusability"
+      - "Library only: Less user-friendly"
+    impact: "API design in pkg/, CLI wrapper in internal/cli/, documentation"
+
+  - id: ADR-013
+    date: 2025-10-27
+    status: accepted
+    decision: "Context-based cancellation and timeouts"
+    reasoning: "Essential for HTTP requests, graceful shutdown, and user cancellation (Ctrl+C). All API calls must accept context.Context. Default 30s timeout configurable via flag/env/config."
+    alternatives:
+      - "No context: Cannot cancel requests, poor UX"
+      - "Fixed timeouts: Less flexible"
+    impact: "All API client methods, HTTP client setup, graceful shutdown in main.go"
+
+  - id: ADR-014
+    date: 2025-10-27
+    status: accepted
+    decision: "Configuration precedence: flags > env vars > config file > defaults"
+    reasoning: "Standard precedence allows override flexibility. Flags for temporary changes, env vars for containers/CI, config file for persistent settings. Environment variables use HANGAR_ prefix for clarity."
+    alternatives:
+      - "Different order: Breaks user expectations"
+      - "Single source: Less flexible"
+    impact: "Configuration loading in internal/config/, flag definitions in cmd/hangar/"
+
+usage_patterns:
+  cli_commands:
+    plugin_info:
+      command: "hangar plugin get <slug>"
+      description: "Get detailed information about a plugin"
+      example: "hangar plugin get essentialsx"
+
+    plugin_list:
+      command: "hangar plugin list [--category <cat>] [--limit <n>]"
+      description: "List plugins with optional filtering"
+      example: "hangar plugin list --category admin_tools --limit 10"
+
+    version_list:
+      command: "hangar version list <slug>"
+      description: "List all versions for a plugin"
+      example: "hangar version list essentialsx"
+
+    version_info:
+      command: "hangar version get <slug> <version>"
+      description: "Get detailed version information"
+      example: "hangar version get essentialsx 2.20.1"
+
+    download_url:
+      command: "hangar version download-url <slug> <version>"
+      description: "Get download URL for a specific version"
+      example: "hangar version download-url essentialsx 2.20.1"
+
+  library_usage:
+    basic_client: |
+      import "github.com/lexfrei/go-hangar/pkg/hangar"
+
+      client := hangar.NewClient(hangar.Config{
+          BaseURL: "https://hangar.papermc.io/api/v1",
+          Token:   os.Getenv("HANGAR_API_TOKEN"), // optional
+          Timeout: 30 * time.Second,
+      })
+
+      plugin, err := client.GetPlugin(ctx, "essentialsx")
+      if err != nil {
+          return errors.Wrap(err, "failed to get plugin")
+      }
+
+    list_versions: |
+      versions, err := client.ListVersions(ctx, "essentialsx", hangar.ListOptions{
+          Limit:  25,
+          Offset: 0,
+      })
+      if err != nil {
+          return errors.Wrap(err, "failed to list versions")
+      }
+
+implementation_checklist:
+  foundation:
+    - "[ ] Initialize go.mod with Go 1.25"
+    - "[ ] Create directory structure (cmd/, internal/, pkg/)"
+    - "[ ] Setup .golangci.yaml with strict rules"
+    - "[ ] Create .gitignore for Go projects"
+    - "[ ] Setup GitHub Actions CI workflow"
+
+  core_library:
+    - "[ ] Define public types in pkg/hangar/types.go (Plugin, Version, etc.)"
+    - "[ ] Create Client interface in pkg/hangar/client.go"
+    - "[ ] Implement HTTP client in internal/client/http_client.go"
+    - "[ ] Add error types in pkg/hangar/errors.go"
+    - "[ ] Write comprehensive tests with httptest mocks"
+
+  configuration:
+    - "[ ] Create config struct in internal/config/config.go"
+    - "[ ] Setup viper loading (file, env, defaults)"
+    - "[ ] Add validation with validator tags"
+    - "[ ] Write config loading tests"
+
+  cli_application:
+    - "[ ] Setup cobra root command in cmd/hangar/main.go"
+    - "[ ] Create plugin subcommands (get, list)"
+    - "[ ] Create version subcommands (list, get, download-url)"
+    - "[ ] Add graceful shutdown with signal handling"
+    - "[ ] Implement output formatting (table, JSON)"
+
+  quality:
+    - "[ ] Achieve >80% test coverage"
+    - "[ ] Fix all golangci-lint errors"
+    - "[ ] Add integration tests with real API (optional)"
+    - "[ ] Document public API with godoc comments"
+    - "[ ] Create README with examples"
+
+  distribution:
+    - "[ ] Setup multi-platform builds (make/goreleaser)"
+    - "[ ] Create Containerfile with distroless"
+    - "[ ] Setup GitHub Releases automation"
+    - "[ ] Generate checksums for binaries"
+
+notes:
+  - "This is a greenfield project - TDD from day one"
+  - "Public API (pkg/hangar/) must be stable and well-documented"
+  - "CLI (cmd/hangar/) is thin wrapper around public API"
+  - "All API calls must support context for cancellation"
+  - "Test with httptest to avoid real API dependencies"
+  - "Consider rate limiting if API enforces it"
+  - "Authentication is optional - token may not be required for public endpoints"
+  - "Follow semver strictly - this is a library others will depend on"
+  - "Zero linting errors before any push"
+  - "Document breaking changes in CHANGELOG.md"

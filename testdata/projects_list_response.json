@@ -1,0 +1,31 @@
+{
+  "pagination": {
+    "count": 2426,
+    "limit": 25,
+    "offset": 0
+  },
+  "result": [
+    {
+      "createdAt": "2024-04-21T22:07:16.475599Z",
+      "id": 1950,
+      "name": "FancyGlow",
+      "namespace": {
+        "owner": "testowner",
+        "slug": "fancyglow"
+      },
+      "stats": {
+        "views": 3618,
+        "downloads": 92,
+        "recentViews": 550,
+        "recentDownloads": 10,
+        "stars": 0,
+        "watchers": 0
+      },
+      "category": "gameplay",
+      "description": "The ultimate cosmetic plugin solution!",
+      "lastUpdated": "2024-06-30T19:29:53.843453Z",
+      "visibility": "public",
+      "avatarUrl": "https://hangarcdn.papermc.io/avatars/project/1950.webp"
+    }
+  ]
+}
