@@ -28,19 +28,19 @@ technical_stack:
   frameworks:
     cli:
       library: "github.com/spf13/cobra"
-      version: "v1.8.1"
+      version: "v1.10.1"
       purpose: "CLI framework for commands and subcommands"
       justification: "Industry standard (kubectl, gh, docker), excellent cobra+viper integration"
 
     config:
       library: "github.com/spf13/viper"
-      version: "v1.19.0"
+      version: "v1.21.0"
       purpose: "Configuration management (files, env vars, flags)"
       justification: "Native cobra integration, multi-source config, battle-tested"
 
     testing:
       library: "github.com/stretchr/testify"
-      version: "v1.9.0"
+      version: "v1.11.1"
       purpose: "Test assertions, mocks, and suites"
       justification: "Most popular testing library, rich assertions, built-in mocks"
 
@@ -58,14 +58,14 @@ technical_stack:
 
     output:
       library: "github.com/jedib0t/go-pretty/v6"
-      version: "v6.6.1"
+      version: "v6.6.8"
       purpose: "Formatted table and colored output"
       justification: "Beautiful CLI output, table support, not too heavy"
 
   libraries:
     errors:
       library: "github.com/cockroachdb/errors"
-      version: "v1.11.3"
+      version: "v1.12.0"
       purpose: "Error handling with stack traces and context"
       justification: "Maintained pkg/errors fork, excellent debugging, context wrapping"
 
