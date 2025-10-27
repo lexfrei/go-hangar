@@ -22,10 +22,19 @@ var versionDownloadURLCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		slug := args[0]
-		version := args[1]
+		versionName := args[1]
+
+		platform, _ := cmd.Flags().GetString("platform")
 
 		client := createClient()
-		downloadURL, err := client.GetDownloadURL(ctx, slug, version)
+
+		// First get project to find owner
+		project, err := client.GetProject(ctx, slug)
+		if err != nil {
+			return errors.Wrap(err, "failed to get project")
+		}
+
+		downloadURL, err := client.GetDownloadURL(ctx, project.Namespace.Owner, slug, versionName, platform)
 		if err != nil {
 			return errors.Wrap(err, "failed to get download URL")
 		}
@@ -35,8 +44,10 @@ var versionDownloadURLCmd = &cobra.Command{
 		switch outputFormat {
 		case "json":
 			result := map[string]string{
+				"owner":       project.Namespace.Owner,
 				"slug":        slug,
-				"version":     version,
+				"version":     versionName,
+				"platform":    platform,
 				"downloadUrl": downloadURL,
 			}
 			encoder := json.NewEncoder(cmd.OutOrStdout())
@@ -56,4 +67,7 @@ var versionDownloadURLCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	versionCmd.AddCommand(versionDownloadURLCmd)
+
+	// download-url command flags
+	versionDownloadURLCmd.Flags().String("platform", "PAPER", "Platform to download for (PAPER, WATERFALL, VELOCITY)")
 }

@@ -2,7 +2,6 @@ package hangar_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -181,20 +180,41 @@ func TestClient_ListProjects_WithCategory(t *testing.T) {
 	assert.Len(t, list.Result, 1)
 }
 
-func TestClient_GetDownloadURL_Success(t *testing.T) {
+func TestClient_ListVersions_Success(t *testing.T) {
 	t.Parallel()
 
+	versionsData := `{
+		"pagination": {"count": 1, "limit": 25, "offset": 0},
+		"result": [{
+			"id": 7728,
+			"projectId": 1950,
+			"name": "2.0.1",
+			"description": "Bug fixes",
+			"createdAt": "2024-06-30T19:29:53.843453Z",
+			"author": "testowner",
+			"visibility": "public",
+			"reviewState": "reviewed",
+			"stats": {"totalDownloads": 69, "platformDownloads": {"PAPER": 69}},
+			"downloads": {
+				"PAPER": {
+					"fileInfo": null,
+					"externalUrl": "https://cdn.test.com/file.jar",
+					"downloadUrl": ""
+				}
+			},
+			"pluginDependencies": {},
+			"channel": {"name": "Release", "description": "Release", "color": "#14b8a6", "flags": [], "createdAt": "2024-04-21T22:07:16.479186Z"},
+			"pinnedStatus": "CHANNEL"
+		}]
+	}`
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/projects/essentialsx/versions/2.20.1/download", r.URL.Path)
+		assert.Equal(t, "/projects/testowner/testplugin/versions", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		// Return download URL in response
-		response := map[string]string{
-			"downloadUrl": "https://hangarcdn.papermc.io/plugins/essentialsx/2.20.1/essentialsx-2.20.1.jar",
-		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(response)
+		_, _ = w.Write([]byte(versionsData))
 	}))
 	defer server.Close()
 
@@ -203,10 +223,61 @@ func TestClient_GetDownloadURL_Success(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	downloadURL, err := client.GetDownloadURL(ctx, "essentialsx", "2.20.1")
+	versions, err := client.ListVersions(ctx, "testowner", "testplugin", hangar.ListOptions{Limit: 25})
 
 	require.NoError(t, err)
-	assert.Contains(t, downloadURL, "essentialsx-2.20.1.jar")
+	assert.Len(t, versions.Result, 1)
+	assert.Equal(t, "2.0.1", versions.Result[0].Name)
+	assert.Equal(t, "testowner", versions.Result[0].Author)
+}
+
+func TestClient_GetDownloadURL_Success(t *testing.T) {
+	t.Parallel()
+
+	versionsData := `{
+		"pagination": {"count": 1, "limit": 100, "offset": 0},
+		"result": [{
+			"id": 7728,
+			"projectId": 1950,
+			"name": "2.0.1",
+			"description": "Bug fixes",
+			"createdAt": "2024-06-30T19:29:53.843453Z",
+			"author": "testowner",
+			"visibility": "public",
+			"reviewState": "reviewed",
+			"stats": {"totalDownloads": 69, "platformDownloads": {"PAPER": 69}},
+			"downloads": {
+				"PAPER": {
+					"fileInfo": null,
+					"externalUrl": "https://cdn.test.com/testplugin-2.0.1.jar",
+					"downloadUrl": ""
+				}
+			},
+			"pluginDependencies": {},
+			"channel": {"name": "Release", "description": "Release", "color": "#14b8a6", "flags": [], "createdAt": "2024-04-21T22:07:16.479186Z"},
+			"pinnedStatus": "CHANNEL"
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testowner/testplugin/versions", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(versionsData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{
+		BaseURL: server.URL,
+	})
+
+	ctx := context.Background()
+	downloadURL, err := client.GetDownloadURL(ctx, "testowner", "testplugin", "2.0.1", "PAPER")
+
+	require.NoError(t, err)
+	assert.Contains(t, downloadURL, "testplugin-2.0.1.jar")
 }
 
 func TestClient_WithAuthentication(t *testing.T) {

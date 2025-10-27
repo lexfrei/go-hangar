@@ -119,27 +119,78 @@ func (c *Client) ListProjects(ctx context.Context, opts ListOptions) (*ProjectsL
 	return &list, nil
 }
 
+// ListVersions retrieves a paginated list of versions for a project.
+// owner is the project owner username, slug is the project identifier.
+func (c *Client) ListVersions(ctx context.Context, owner, slug string, opts ListOptions) (*VersionsList, error) {
+	if owner == "" {
+		return nil, errors.New("owner cannot be empty")
+	}
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/%s/versions",
+		c.baseURL, url.PathEscape(owner), url.PathEscape(slug))
+
+	// Build query parameters
+	params := url.Values{}
+	limit := opts.Limit
+	if limit == 0 {
+		limit = DefaultLimit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(opts.Offset))
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	var list VersionsList
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to list versions")
+	}
+
+	return &list, nil
+}
+
 // GetDownloadURL retrieves the download URL for a specific version.
-func (c *Client) GetDownloadURL(ctx context.Context, slug, version string) (string, error) {
+// owner is the project owner username, slug is the project identifier, version is the version name.
+// platform specifies which platform to get the download for (e.g., "PAPER", "WATERFALL").
+func (c *Client) GetDownloadURL(ctx context.Context, owner, slug, version, platform string) (string, error) {
+	if owner == "" {
+		return "", errors.New("owner cannot be empty")
+	}
 	if slug == "" {
 		return "", errors.New("slug cannot be empty")
 	}
 	if version == "" {
 		return "", errors.New("version cannot be empty")
 	}
-
-	endpoint := fmt.Sprintf("%s/projects/%s/versions/%s/download",
-		c.baseURL, url.PathEscape(slug), url.PathEscape(version))
-
-	var response struct {
-		DownloadURL string `json:"downloadUrl"`
+	if platform == "" {
+		platform = "PAPER" // Default to PAPER platform
 	}
 
-	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return "", errors.Wrap(err, "failed to get download URL")
+	// List versions to find the specific one
+	versions, err := c.ListVersions(ctx, owner, slug, ListOptions{Limit: 100})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to list versions")
 	}
 
-	return response.DownloadURL, nil
+	// Find matching version
+	for _, v := range versions.Result {
+		if v.Name == version {
+			if downloadInfo, ok := v.Downloads[platform]; ok {
+				// Prefer downloadUrl, fallback to externalUrl
+				if downloadInfo.DownloadURL != "" {
+					return downloadInfo.DownloadURL, nil
+				}
+				if downloadInfo.ExternalURL != "" {
+					return downloadInfo.ExternalURL, nil
+				}
+			}
+			return "", errors.Newf("no download URL found for platform %s", platform)
+		}
+	}
+
+	return "", errors.Newf("version %s not found", version)
 }
 
 // doRequest performs an HTTP request with proper error handling.

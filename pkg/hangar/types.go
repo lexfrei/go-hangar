@@ -117,20 +117,76 @@ type Pagination struct {
 type Version struct {
 	// ID is the unique identifier for this version.
 	ID int64 `json:"id"`
+	// ProjectID is the ID of the parent project.
+	ProjectID int64 `json:"projectId"`
 	// Name is the version name (e.g., "1.0.0", "2.1-SNAPSHOT").
 	Name string `json:"name"`
 	// Description is a changelog or description of changes.
 	Description string `json:"description"`
 	// CreatedAt is when the version was created.
 	CreatedAt time.Time `json:"createdAt"`
-	// Downloads is the number of downloads for this version.
-	Downloads int64 `json:"downloads"`
-	// FileInfo contains file metadata and download information.
-	FileInfo FileInfo `json:"fileInfo"`
-	// PlatformDependencies lists required platforms and versions.
-	PlatformDependencies map[string][]string `json:"platformDependencies"`
-	// PluginDependencies lists required plugin dependencies.
-	PluginDependencies map[string]string `json:"pluginDependencies"`
+	// Author is the username of the version author.
+	Author string `json:"author"`
+	// Visibility is the version visibility ("public", "unlisted", etc.).
+	Visibility string `json:"visibility"`
+	// ReviewState is the review status ("reviewed", "under_review", etc.).
+	ReviewState string `json:"reviewState"`
+	// Stats contains download statistics for this version.
+	Stats VersionStats `json:"stats"`
+	// Downloads contains platform-specific download information.
+	Downloads map[string]DownloadInfo `json:"downloads"`
+	// PluginDependencies lists required plugin dependencies per platform.
+	PluginDependencies map[string][]PluginDependency `json:"pluginDependencies"`
+	// Channel contains channel information.
+	Channel Channel `json:"channel"`
+	// PinnedStatus indicates if version is pinned ("CHANNEL", "VERSION", "NONE").
+	PinnedStatus string `json:"pinnedStatus"`
+}
+
+// VersionStats contains download statistics for a version.
+type VersionStats struct {
+	// TotalDownloads is the total download count.
+	TotalDownloads int64 `json:"totalDownloads"`
+	// PlatformDownloads is downloads per platform.
+	PlatformDownloads map[string]int64 `json:"platformDownloads"`
+}
+
+// DownloadInfo contains download information for a specific platform.
+type DownloadInfo struct {
+	// FileInfo contains file metadata (may be null for external URLs).
+	FileInfo *FileInfo `json:"fileInfo"`
+	// ExternalURL is a direct download URL (e.g., from Modrinth, GitHub).
+	ExternalURL string `json:"externalUrl"`
+	// DownloadURL is the Hangar-hosted download URL.
+	DownloadURL string `json:"downloadUrl"`
+}
+
+// PluginDependency represents a required plugin dependency.
+type PluginDependency struct {
+	// Name is the plugin name.
+	Name string `json:"name"`
+	// ProjectID is the Hangar project ID if available.
+	ProjectID *int64 `json:"projectId"`
+	// Required indicates if this dependency is mandatory.
+	Required bool `json:"required"`
+	// ExternalURL is a link to the plugin if not on Hangar.
+	ExternalURL string `json:"externalUrl"`
+	// Platform is the platform this dependency applies to.
+	Platform string `json:"platform"`
+}
+
+// Channel represents a version release channel.
+type Channel struct {
+	// Name is the channel name (e.g., "Release", "Beta", "Alpha").
+	Name string `json:"name"`
+	// Description explains the channel purpose.
+	Description string `json:"description"`
+	// Color is the hex color code for the channel.
+	Color string `json:"color"`
+	// Flags are channel configuration flags.
+	Flags []string `json:"flags"`
+	// CreatedAt is when the channel was created.
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // FileInfo contains metadata about a version's downloadable file.
