@@ -321,3 +321,596 @@ func TestListOptions_Defaults(t *testing.T) {
 	assert.Equal(t, 25, opts.Limit)
 	assert.Equal(t, 0, opts.Offset)
 }
+
+// Test Users & Authors methods
+
+func TestClient_ListUsers_Success(t *testing.T) {
+	t.Parallel()
+
+	usersData := `{
+		"pagination": {"count": 100, "limit": 25, "offset": 0},
+		"result": [{
+			"name": "testuser",
+			"tagline": "Test user tagline",
+			"joinDate": "2024-01-01T00:00:00Z",
+			"roles": [{"name": "Developer", "color": "#00ff00"}],
+			"projectCount": 5,
+			"locked": false
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/users", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(usersData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	list, err := client.ListUsers(ctx, "", hangar.ListOptions{Limit: 25})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(100), list.Pagination.Count)
+	assert.Len(t, list.Result, 1)
+	assert.Equal(t, "testuser", list.Result[0].Name)
+}
+
+func TestClient_GetUser_Success(t *testing.T) {
+	t.Parallel()
+
+	userData := `{
+		"name": "testuser",
+		"tagline": "Test user",
+		"joinDate": "2024-01-01T00:00:00Z",
+		"roles": [{"name": "Developer", "color": "#00ff00"}],
+		"projectCount": 5,
+		"locked": false
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/users/testuser", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(userData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	user, err := client.GetUser(ctx, "testuser")
+
+	require.NoError(t, err)
+	assert.Equal(t, "testuser", user.Name)
+	assert.Equal(t, 5, user.ProjectCount)
+}
+
+func TestClient_GetUserStarred_Success(t *testing.T) {
+	t.Parallel()
+
+	projectsData := `{
+		"pagination": {"count": 3, "limit": 25, "offset": 0},
+		"result": [{
+			"id": 1,
+			"name": "TestProject",
+			"namespace": {"owner": "testowner", "slug": "testproject"},
+			"category": "gameplay",
+			"stats": {"downloads": 1000, "stars": 50}
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/users/testuser/starred", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(projectsData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	list, err := client.GetUserStarred(ctx, "testuser", hangar.ListOptions{Limit: 25})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), list.Pagination.Count)
+	assert.Len(t, list.Result, 1)
+}
+
+func TestClient_GetUserWatching_Success(t *testing.T) {
+	t.Parallel()
+
+	projectsData := `{
+		"pagination": {"count": 2, "limit": 25, "offset": 0},
+		"result": [{
+			"id": 1,
+			"name": "TestProject",
+			"namespace": {"owner": "testowner", "slug": "testproject"},
+			"category": "gameplay",
+			"stats": {"downloads": 1000, "watchers": 20}
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/users/testuser/watching", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(projectsData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	list, err := client.GetUserWatching(ctx, "testuser", hangar.ListOptions{Limit: 25})
+
+	require.NoError(t, err)
+	assert.Len(t, list.Result, 1)
+}
+
+func TestClient_GetUserPinned_Success(t *testing.T) {
+	t.Parallel()
+
+	projectsData := `{
+		"pagination": {"count": 1, "limit": 25, "offset": 0},
+		"result": [{
+			"id": 1,
+			"name": "PinnedProject",
+			"namespace": {"owner": "testuser", "slug": "pinned"},
+			"category": "admin_tools"
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/users/testuser/pinned", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(projectsData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	list, err := client.GetUserPinned(ctx, "testuser")
+
+	require.NoError(t, err)
+	assert.Len(t, list.Result, 1)
+	assert.Equal(t, "PinnedProject", list.Result[0].Name)
+}
+
+func TestClient_ListAuthors_Success(t *testing.T) {
+	t.Parallel()
+
+	authorsData := `{
+		"pagination": {"count": 50, "limit": 25, "offset": 0},
+		"result": [{
+			"name": "author1",
+			"tagline": "Plugin developer",
+			"joinDate": "2023-01-01T00:00:00Z",
+			"roles": [{"name": "Developer", "color": "#00ff00"}],
+			"projectCount": 10,
+			"locked": false
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/authors", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(authorsData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	list, err := client.ListAuthors(ctx, hangar.ListOptions{Limit: 25})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(50), list.Pagination.Count)
+	assert.Len(t, list.Result, 1)
+}
+
+func TestClient_ListStaff_Success(t *testing.T) {
+	t.Parallel()
+
+	staffData := `[{
+		"name": "staffmember",
+		"roles": [{"name": "Hangar_Admin", "color": "#ff0000"}],
+		"joinDate": "2022-01-01T00:00:00Z"
+	}]`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/staff", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(staffData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	staff, err := client.ListStaff(ctx)
+
+	require.NoError(t, err)
+	assert.Len(t, staff, 1)
+	assert.Equal(t, "staffmember", staff[0].Name)
+}
+
+// Test Version utilities
+
+func TestClient_GetVersionByID_Success(t *testing.T) {
+	t.Parallel()
+
+	versionData := `{
+		"id": 12345,
+		"projectId": 1950,
+		"name": "1.0.0",
+		"description": "Initial release",
+		"createdAt": "2024-01-01T00:00:00Z",
+		"author": "testauthor",
+		"visibility": "public",
+		"reviewState": "reviewed",
+		"stats": {"totalDownloads": 100},
+		"downloads": {}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/versions/12345", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(versionData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	version, err := client.GetVersionByID(ctx, 12345)
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(12345), version.ID)
+	assert.Equal(t, "1.0.0", version.Name)
+}
+
+func TestClient_GetVersionByHash_Success(t *testing.T) {
+	t.Parallel()
+
+	versionData := `{
+		"id": 67890,
+		"projectId": 1950,
+		"name": "2.0.0",
+		"description": "Major update",
+		"createdAt": "2024-06-01T00:00:00Z",
+		"author": "testauthor",
+		"visibility": "public",
+		"reviewState": "reviewed",
+		"stats": {"totalDownloads": 500},
+		"downloads": {}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/versions/find/abc123def456", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(versionData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	version, err := client.GetVersionByHash(ctx, "abc123def456")
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(67890), version.ID)
+	assert.Equal(t, "2.0.0", version.Name)
+}
+
+// Test Project social methods
+
+func TestClient_GetProjectMembers_Success(t *testing.T) {
+	t.Parallel()
+
+	membersData := `{
+		"pagination": {"count": 3, "limit": 25, "offset": 0},
+		"result": [{
+			"user": "member1",
+			"roles": [{"name": "Owner", "color": "#ff0000"}],
+			"accepted": true
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/members", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(membersData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	list, err := client.GetProjectMembers(ctx, "testproject", hangar.ListOptions{Limit: 25})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), list.Pagination.Count)
+	assert.Len(t, list.Result, 1)
+	assert.Equal(t, "member1", list.Result[0].User)
+}
+
+func TestClient_GetProjectStargazers_Success(t *testing.T) {
+	t.Parallel()
+
+	stargazersData := `{
+		"pagination": {"count": 50, "limit": 25, "offset": 0},
+		"result": [{
+			"name": "stargazer1",
+			"projectCount": 2,
+			"joinDate": "2024-01-01T00:00:00Z"
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/stargazers", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(stargazersData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	list, err := client.GetProjectStargazers(ctx, "testproject", hangar.ListOptions{Limit: 25})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(50), list.Pagination.Count)
+	assert.Len(t, list.Result, 1)
+}
+
+func TestClient_GetProjectWatchers_Success(t *testing.T) {
+	t.Parallel()
+
+	watchersData := `{
+		"pagination": {"count": 20, "limit": 25, "offset": 0},
+		"result": [{
+			"name": "watcher1",
+			"projectCount": 5,
+			"joinDate": "2024-02-01T00:00:00Z"
+		}]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/watchers", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(watchersData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	list, err := client.GetProjectWatchers(ctx, "testproject", hangar.ListOptions{Limit: 25})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(20), list.Pagination.Count)
+	assert.Len(t, list.Result, 1)
+}
+
+// Test Statistics methods
+
+func TestClient_GetProjectStats_Success(t *testing.T) {
+	t.Parallel()
+
+	statsData := `{
+		"2024-01-01": {"downloads": 100, "views": 500},
+		"2024-01-02": {"downloads": 150, "views": 600}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/stats", r.URL.Path)
+		query := r.URL.Query()
+		assert.Equal(t, "2024-01-01", query.Get("fromDate"))
+		assert.Equal(t, "2024-01-02", query.Get("toDate"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(statsData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	stats, err := client.GetProjectStats(ctx, "testproject", "2024-01-01", "2024-01-02")
+
+	require.NoError(t, err)
+	assert.Len(t, stats, 2)
+	assert.Equal(t, int64(100), stats["2024-01-01"].Downloads)
+	assert.Equal(t, int64(500), stats["2024-01-01"].Views)
+}
+
+func TestClient_GetVersionStats_Success(t *testing.T) {
+	t.Parallel()
+
+	statsData := `{
+		"2024-06-01": {"downloads": 50, "views": 200},
+		"2024-06-02": {"downloads": 75, "views": 250}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/versions/1.0.0/stats", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(statsData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	stats, err := client.GetVersionStats(ctx, "testproject", "1.0.0", "", "")
+
+	require.NoError(t, err)
+	assert.Len(t, stats, 2)
+	assert.Equal(t, int64(50), stats["2024-06-01"].Downloads)
+}
+
+// Test Pages methods
+
+func TestClient_GetProjectPage_Success(t *testing.T) {
+	t.Parallel()
+
+	pageData := `{
+		"name": "Home",
+		"slug": "home",
+		"contents": "# Welcome\nThis is the home page"
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/pages/home", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(pageData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	page, err := client.GetProjectPage(ctx, "testproject", "home")
+
+	require.NoError(t, err)
+	assert.Equal(t, "Home", page.Name)
+	assert.Equal(t, "home", page.Slug)
+	assert.Contains(t, page.Contents, "Welcome")
+}
+
+func TestClient_GetProjectMainPage_Success(t *testing.T) {
+	t.Parallel()
+
+	pageData := `{
+		"name": "README",
+		"slug": "readme",
+		"contents": "# TestProject\nMain documentation"
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/pages/home", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(pageData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	page, err := client.GetProjectMainPage(ctx, "testproject")
+
+	require.NoError(t, err)
+	assert.Equal(t, "README", page.Name)
+	assert.Contains(t, page.Contents, "TestProject")
+}
+
+// Test Latest version shortcuts
+
+func TestClient_GetLatestVersion_Success(t *testing.T) {
+	t.Parallel()
+
+	versionData := `{
+		"id": 99999,
+		"projectId": 1950,
+		"name": "3.0.0",
+		"description": "Latest release",
+		"createdAt": "2024-12-01T00:00:00Z",
+		"author": "testauthor",
+		"visibility": "public",
+		"reviewState": "reviewed",
+		"stats": {"totalDownloads": 1000},
+		"downloads": {}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/latest", r.URL.Path)
+		query := r.URL.Query()
+		assert.Equal(t, "Release", query.Get("channel"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(versionData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	version, err := client.GetLatestVersion(ctx, "testproject", "Release", "", "")
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(99999), version.ID)
+	assert.Equal(t, "3.0.0", version.Name)
+}
+
+func TestClient_GetLatestReleaseVersion_Success(t *testing.T) {
+	t.Parallel()
+
+	versionData := `{
+		"id": 88888,
+		"projectId": 1950,
+		"name": "2.5.0",
+		"description": "Latest stable",
+		"createdAt": "2024-11-01T00:00:00Z",
+		"author": "testauthor",
+		"visibility": "public",
+		"reviewState": "reviewed",
+		"stats": {"totalDownloads": 2000},
+		"downloads": {}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/testproject/latest", r.URL.Path)
+		query := r.URL.Query()
+		assert.Equal(t, "Release", query.Get("channel"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(versionData))
+	}))
+	defer server.Close()
+
+	client := hangar.NewClient(hangar.Config{BaseURL: server.URL})
+	ctx := context.Background()
+
+	version, err := client.GetLatestReleaseVersion(ctx, "testproject")
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(88888), version.ID)
+	assert.Equal(t, "2.5.0", version.Name)
+}

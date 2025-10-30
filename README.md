@@ -4,13 +4,18 @@ CLI tool and Go library for interacting with the PaperMC Hangar API.
 
 ## Features
 
-- Get detailed information about plugins
-- List plugins with filtering and pagination
-- Retrieve download URLs for specific versions
-- Support for both CLI usage and library import
-- Structured logging with slog
-- Context-based cancellation
-- Multiple output formats (table, JSON)
+- **Projects**: Get information, list projects, retrieve versions and download URLs
+- **Users**: Search users, view profiles, starred/watching/pinned projects
+- **Authors & Staff**: List authors and Hangar staff members
+- **Project Social**: View project members, stargazers, and watchers
+- **Statistics**: Retrieve daily project and version statistics with date filtering
+- **Pages**: Access project documentation and README pages
+- **Version Utilities**: Find versions by ID or file hash, get latest releases
+- **Full CLI & Library**: Support for both CLI usage and library import
+- **Structured Logging**: Built-in slog integration
+- **Context Cancellation**: Graceful shutdown support
+- **Multiple Formats**: Table and JSON output modes
+- **API Coverage**: 27/40 endpoints (67.5% - all read operations)
 
 ## Installation
 
@@ -22,42 +27,78 @@ go install github.com/lexfrei/go-hangar/cmd/hangar@latest
 
 ### CLI
 
-#### Get Plugin Information
+#### Projects
 
+Get project information:
 ```bash
 hangar project get <slug>
+hangar project get fancyglow
 ```
 
-Example:
-```bash
-hangar project list --limit 5
-```
-
-#### List Plugins
-
-```bash
-hangar project list [flags]
-```
-
-Flags:
-- `--limit` - Maximum number of results (default: 25)
-- `--offset` - Offset for pagination (default: 0)
-- `--category` - Filter by category
-
-Example:
+List projects with filtering:
 ```bash
 hangar project list --category gameplay --limit 10
 ```
 
-#### Get Download URL
-
+View project members, stargazers, and watchers:
 ```bash
-hangar version download-url <slug> <version>
+hangar project members <slug>
+hangar project stargazers <slug> --limit 50
+hangar project watchers <slug>
 ```
 
-Example:
+Get project pages:
 ```bash
+hangar project page <slug> [path]      # Get specific page
+hangar project readme <slug>           # Get main README
+```
+
+Project statistics:
+```bash
+hangar project stats <slug> --from 2024-01-01 --to 2024-01-31
+```
+
+#### Versions
+
+Get download URL:
+```bash
+hangar version download-url <slug> <version>
 hangar version download-url essentialsx 2.20.1
+```
+
+Version utilities:
+```bash
+hangar version get-by-id 12345
+hangar version find-by-hash abc123def456
+hangar version latest <slug> --channel Release --platform PAPER
+```
+
+Version statistics:
+```bash
+hangar version stats <slug> <version> --from 2024-01-01 --to 2024-01-31
+```
+
+#### Users
+
+Get user information:
+```bash
+hangar user get <username>
+hangar user list [query] --limit 25
+```
+
+View user's projects:
+```bash
+hangar user starred <username>
+hangar user watching <username>
+hangar user pinned <username>
+```
+
+#### Authors & Staff
+
+List authors and staff:
+```bash
+hangar authors list --limit 50
+hangar staff list
 ```
 
 ### Global Flags
@@ -88,40 +129,90 @@ func main() {
 		BaseURL: hangar.DefaultBaseURL,
 		Timeout: 30 * time.Second,
 	})
+	ctx := context.Background()
+
+	// === Projects ===
 
 	// Get project information
-	ctx := context.Background()
 	project, err := client.GetProject(ctx, "fancyglow")
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("Plugin: %s (Downloads: %d)\n", project.Name, project.Stats.Downloads)
 
-	fmt.Printf("Plugin: %s\n", project.Name)
-	fmt.Printf("Downloads: %d\n", project.Stats.Downloads)
-	fmt.Printf("Category: %s\n", project.Category)
-
-	// List projects
+	// List projects with filtering
 	list, err := client.ListProjects(ctx, hangar.ListOptions{
 		Limit:    10,
-		Offset:   0,
 		Category: "gameplay",
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	fmt.Printf("Total projects: %d\n", list.Pagination.Count)
-	for _, p := range list.Result {
-		fmt.Printf("- %s (%s)\n", p.Name, p.Namespace.Slug)
-	}
 
-	// Get download URL
-	downloadURL, err := client.GetDownloadURL(ctx, "fancyglow", "1.0.0")
+	// Get project page
+	page, err := client.GetProjectMainPage(ctx, "fancyglow")
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("README: %s\n", page.Contents)
 
-	fmt.Printf("Download URL: %s\n", downloadURL)
+	// === Versions ===
+
+	// Get download URL
+	downloadURL, err := client.GetDownloadURL(ctx, "fancyglow", "2.0.0", "PAPER")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Download: %s\n", downloadURL)
+
+	// Get latest version
+	latest, err := client.GetLatestReleaseVersion(ctx, "fancyglow")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Latest: %s\n", latest.Name)
+
+	// === Users ===
+
+	// Get user information
+	user, err := client.GetUser(ctx, "username")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("User: %s (Projects: %d)\n", user.Name, user.ProjectCount)
+
+	// Get user's starred projects
+	starred, err := client.GetUserStarred(ctx, "username", hangar.ListOptions{Limit: 10})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Starred: %d projects\n", starred.Pagination.Count)
+
+	// === Statistics ===
+
+	// Get project statistics
+	stats, err := client.GetProjectStats(ctx, "fancyglow", "2024-01-01", "2024-01-31")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Stats for %d days\n", len(stats))
+
+	// === Project Social ===
+
+	// Get project members
+	members, err := client.GetProjectMembers(ctx, "fancyglow", hangar.ListOptions{Limit: 25})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Team: %d members\n", members.Pagination.Count)
+
+	// Get stargazers
+	stargazers, err := client.GetProjectStargazers(ctx, "fancyglow", hangar.ListOptions{Limit: 25})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Stars: %d users\n", stargazers.Pagination.Count)
 }
 ```
 

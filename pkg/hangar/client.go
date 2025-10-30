@@ -193,6 +193,403 @@ func (c *Client) GetDownloadURL(ctx context.Context, owner, slug, version, platf
 	return "", errors.Newf("version %s not found", version)
 }
 
+// ListUsers retrieves a paginated list of users matching a query.
+func (c *Client) ListUsers(ctx context.Context, query string, opts ListOptions) (*UserList, error) {
+	endpoint := fmt.Sprintf("%s/users", c.baseURL)
+
+	// Build query parameters
+	params := url.Values{}
+	limit := opts.Limit
+	if limit == 0 {
+		limit = DefaultLimit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(opts.Offset))
+
+	if query != "" {
+		params.Set("query", query)
+	}
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	var list UserList
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to list users")
+	}
+
+	return &list, nil
+}
+
+// GetUser retrieves detailed information about a specific user.
+func (c *Client) GetUser(ctx context.Context, username string) (*User, error) {
+	if username == "" {
+		return nil, errors.New("username cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/users/%s", c.baseURL, url.PathEscape(username))
+
+	var user User
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &user); err != nil {
+		return nil, errors.Wrap(err, "failed to get user")
+	}
+
+	return &user, nil
+}
+
+// GetUserStarred retrieves projects starred by a user.
+func (c *Client) GetUserStarred(ctx context.Context, username string, opts ListOptions) (*ProjectsList, error) {
+	if username == "" {
+		return nil, errors.New("username cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/users/%s/starred", c.baseURL, url.PathEscape(username))
+
+	// Build query parameters
+	params := url.Values{}
+	limit := opts.Limit
+	if limit == 0 {
+		limit = DefaultLimit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(opts.Offset))
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	var list ProjectsList
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to get starred projects")
+	}
+
+	return &list, nil
+}
+
+// GetUserWatching retrieves projects watched by a user.
+func (c *Client) GetUserWatching(ctx context.Context, username string, opts ListOptions) (*ProjectsList, error) {
+	if username == "" {
+		return nil, errors.New("username cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/users/%s/watching", c.baseURL, url.PathEscape(username))
+
+	// Build query parameters
+	params := url.Values{}
+	limit := opts.Limit
+	if limit == 0 {
+		limit = DefaultLimit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(opts.Offset))
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	var list ProjectsList
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to get watching projects")
+	}
+
+	return &list, nil
+}
+
+// GetUserPinned retrieves projects pinned by a user.
+func (c *Client) GetUserPinned(ctx context.Context, username string) (*ProjectsList, error) {
+	if username == "" {
+		return nil, errors.New("username cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/users/%s/pinned", c.baseURL, url.PathEscape(username))
+
+	var list ProjectsList
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to get pinned projects")
+	}
+
+	return &list, nil
+}
+
+// ListAuthors retrieves a paginated list of authors (users with projects).
+func (c *Client) ListAuthors(ctx context.Context, opts ListOptions) (*AuthorList, error) {
+	endpoint := fmt.Sprintf("%s/authors", c.baseURL)
+
+	// Build query parameters
+	params := url.Values{}
+	limit := opts.Limit
+	if limit == 0 {
+		limit = DefaultLimit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(opts.Offset))
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	var list AuthorList
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to list authors")
+	}
+
+	return &list, nil
+}
+
+// ListStaff retrieves the list of Hangar staff members.
+func (c *Client) ListStaff(ctx context.Context) ([]StaffMember, error) {
+	endpoint := fmt.Sprintf("%s/staff", c.baseURL)
+
+	var staff []StaffMember
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &staff); err != nil {
+		return nil, errors.Wrap(err, "failed to list staff")
+	}
+
+	return staff, nil
+}
+
+// GetVersionByID retrieves a version by its unique ID.
+func (c *Client) GetVersionByID(ctx context.Context, versionID int64) (*Version, error) {
+	if versionID <= 0 {
+		return nil, errors.New("versionID must be positive")
+	}
+
+	endpoint := fmt.Sprintf("%s/versions/%d", c.baseURL, versionID)
+
+	var version Version
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &version); err != nil {
+		return nil, errors.Wrap(err, "failed to get version")
+	}
+
+	return &version, nil
+}
+
+// GetVersionByHash retrieves a version by its file hash.
+func (c *Client) GetVersionByHash(ctx context.Context, hash string) (*Version, error) {
+	if hash == "" {
+		return nil, errors.New("hash cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/versions/find/%s", c.baseURL, url.PathEscape(hash))
+
+	var version Version
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &version); err != nil {
+		return nil, errors.Wrap(err, "failed to find version by hash")
+	}
+
+	return &version, nil
+}
+
+// GetProjectMembers retrieves the list of project team members.
+func (c *Client) GetProjectMembers(ctx context.Context, slug string, opts ListOptions) (*MemberList, error) {
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/members", c.baseURL, url.PathEscape(slug))
+
+	// Build query parameters
+	params := url.Values{}
+	limit := opts.Limit
+	if limit == 0 {
+		limit = DefaultLimit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(opts.Offset))
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	var list MemberList
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to get project members")
+	}
+
+	return &list, nil
+}
+
+// GetProjectStargazers retrieves users who starred the project.
+func (c *Client) GetProjectStargazers(ctx context.Context, slug string, opts ListOptions) (*UserList, error) {
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/stargazers", c.baseURL, url.PathEscape(slug))
+
+	// Build query parameters
+	params := url.Values{}
+	limit := opts.Limit
+	if limit == 0 {
+		limit = DefaultLimit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(opts.Offset))
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	var list UserList
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to get project stargazers")
+	}
+
+	return &list, nil
+}
+
+// GetProjectWatchers retrieves users watching the project.
+func (c *Client) GetProjectWatchers(ctx context.Context, slug string, opts ListOptions) (*UserList, error) {
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/watchers", c.baseURL, url.PathEscape(slug))
+
+	// Build query parameters
+	params := url.Values{}
+	limit := opts.Limit
+	if limit == 0 {
+		limit = DefaultLimit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(opts.Offset))
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	var list UserList
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &list); err != nil {
+		return nil, errors.Wrap(err, "failed to get project watchers")
+	}
+
+	return &list, nil
+}
+
+// GetProjectStats retrieves daily statistics for a project within a date range.
+// from and to should be in YYYY-MM-DD format. If empty, returns all available data.
+func (c *Client) GetProjectStats(ctx context.Context, slug, fromDate, toDate string) (ProjectStats, error) {
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/stats", c.baseURL, url.PathEscape(slug))
+
+	// Build query parameters
+	params := url.Values{}
+	if fromDate != "" {
+		params.Set("fromDate", fromDate)
+	}
+	if toDate != "" {
+		params.Set("toDate", toDate)
+	}
+
+	var fullURL string
+	if len(params) > 0 {
+		fullURL = fmt.Sprintf("%s?%s", endpoint, params.Encode())
+	} else {
+		fullURL = endpoint
+	}
+
+	var stats ProjectStats
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &stats); err != nil {
+		return nil, errors.Wrap(err, "failed to get project stats")
+	}
+
+	return stats, nil
+}
+
+// GetVersionStats retrieves daily statistics for a specific version within a date range.
+// from and to should be in YYYY-MM-DD format. If empty, returns all available data.
+func (c *Client) GetVersionStats(ctx context.Context, slug, version, fromDate, toDate string) (VersionStatsData, error) {
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+	if version == "" {
+		return nil, errors.New("version cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/versions/%s/stats",
+		c.baseURL, url.PathEscape(slug), url.PathEscape(version))
+
+	// Build query parameters
+	params := url.Values{}
+	if fromDate != "" {
+		params.Set("fromDate", fromDate)
+	}
+	if toDate != "" {
+		params.Set("toDate", toDate)
+	}
+
+	var fullURL string
+	if len(params) > 0 {
+		fullURL = fmt.Sprintf("%s?%s", endpoint, params.Encode())
+	} else {
+		fullURL = endpoint
+	}
+
+	var stats VersionStatsData
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &stats); err != nil {
+		return nil, errors.Wrap(err, "failed to get version stats")
+	}
+
+	return stats, nil
+}
+
+// GetProjectPage retrieves a specific page content from a project.
+func (c *Client) GetProjectPage(ctx context.Context, slug, pagePath string) (*Page, error) {
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+	if pagePath == "" {
+		pagePath = "home" // Default to home page
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/pages/%s",
+		c.baseURL, url.PathEscape(slug), url.PathEscape(pagePath))
+
+	var page Page
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &page); err != nil {
+		return nil, errors.Wrap(err, "failed to get project page")
+	}
+
+	return &page, nil
+}
+
+// GetProjectMainPage retrieves the main (home) page of a project.
+func (c *Client) GetProjectMainPage(ctx context.Context, slug string) (*Page, error) {
+	return c.GetProjectPage(ctx, slug, "home")
+}
+
+// GetLatestVersion retrieves the latest version of a project with optional filters.
+// channel, platform, and minecraftVersion are all optional filters.
+func (c *Client) GetLatestVersion(ctx context.Context, slug, channel, platform, minecraftVersion string) (*Version, error) {
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/latest", c.baseURL, url.PathEscape(slug))
+
+	// Build query parameters
+	params := url.Values{}
+	if channel != "" {
+		params.Set("channel", channel)
+	}
+	if platform != "" {
+		params.Set("platform", platform)
+	}
+	if minecraftVersion != "" {
+		params.Set("platformVersion", minecraftVersion)
+	}
+
+	var fullURL string
+	if len(params) > 0 {
+		fullURL = fmt.Sprintf("%s?%s", endpoint, params.Encode())
+	} else {
+		fullURL = endpoint
+	}
+
+	var version Version
+	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &version); err != nil {
+		return nil, errors.Wrap(err, "failed to get latest version")
+	}
+
+	return &version, nil
+}
+
+// GetLatestReleaseVersion retrieves the latest release version of a project.
+func (c *Client) GetLatestReleaseVersion(ctx context.Context, slug string) (*Version, error) {
+	return c.GetLatestVersion(ctx, slug, "Release", "", "")
+}
+
 // doRequest performs an HTTP request with proper error handling.
 func (c *Client) doRequest(ctx context.Context, method, url string, body io.Reader, result interface{}) error {
 	req, err := http.NewRequestWithContext(ctx, method, url, body)

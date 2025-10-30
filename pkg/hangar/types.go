@@ -206,3 +206,135 @@ type VersionsList struct {
 	// Result is the list of versions in this page.
 	Result []Version `json:"result"`
 }
+
+// User represents a Hangar user.
+type User struct {
+	// Name is the username.
+	Name string `json:"name"`
+	// TagLine is the user's tagline/bio.
+	TagLine string `json:"tagline"`
+	// JoinDate is when the user joined Hangar.
+	JoinDate time.Time `json:"joinDate"`
+	// Roles are the user's global roles.
+	Roles []Role `json:"roles"`
+	// ProjectCount is the number of projects owned.
+	ProjectCount int `json:"projectCount"`
+	// Locked indicates if the account is locked.
+	Locked bool `json:"locked"`
+	// AvatarURL is the URL to the user's avatar.
+	AvatarURL string `json:"avatarUrl,omitempty"`
+	// Socials contains social media links.
+	Socials []Social `json:"socials,omitempty"`
+}
+
+// Role represents a user role.
+type Role struct {
+	// Name is the role name.
+	Name string `json:"name"`
+	// Category is the role category.
+	Category string `json:"category"`
+	// Color is the hex color code for the role.
+	Color string `json:"color"`
+}
+
+// Social represents a social media link.
+type Social struct {
+	// Type is the social platform type.
+	Type string `json:"type"`
+	// Link is the URL to the social profile.
+	Link string `json:"link"`
+}
+
+// UserList represents a paginated list of users.
+type UserList struct {
+	// Pagination contains pagination metadata.
+	Pagination Pagination `json:"pagination"`
+	// Result is the list of users in this page.
+	Result []User `json:"result"`
+}
+
+// ProjectMember represents a project team member.
+type ProjectMember struct {
+	// User is the member's username.
+	User string `json:"user"`
+	// Roles are the member's project roles.
+	Roles []Role `json:"roles"`
+	// Accepted indicates if the member accepted the invite.
+	Accepted bool `json:"accepted"`
+}
+
+// MemberList represents a paginated list of project members.
+type MemberList struct {
+	// Pagination contains pagination metadata.
+	Pagination Pagination `json:"pagination"`
+	// Result is the list of members in this page.
+	Result []ProjectMember `json:"result"`
+}
+
+// ProjectStats represents daily statistics for a project.
+// Map key is date in YYYY-MM-DD format.
+type ProjectStats map[string]DailyStats
+
+// VersionStatsData represents daily statistics for a version.
+// Map key is date in YYYY-MM-DD format.
+type VersionStatsData map[string]DailyStats
+
+// DailyStats contains statistics for a single day.
+type DailyStats struct {
+	// Downloads is the number of downloads on this day.
+	Downloads int64 `json:"downloads"`
+	// Views is the number of views on this day.
+	Views int64 `json:"views"`
+}
+
+// Page represents a project page with Markdown content.
+type Page struct {
+	// ID is the page identifier.
+	ID int64 `json:"id"`
+	// Name is the page name.
+	Name string `json:"name"`
+	// Slug is the URL-friendly page identifier.
+	Slug string `json:"slug"`
+	// Contents is the Markdown content.
+	Contents string `json:"contents"`
+}
+
+// Author represents an author with project information.
+type Author struct {
+	// Name is the author username.
+	Name string `json:"name"`
+	// JoinDate is when the author joined.
+	JoinDate time.Time `json:"joinDate"`
+	// ProjectCount is the number of projects.
+	ProjectCount int `json:"projectCount"`
+	// Roles are the author's roles.
+	Roles []Role `json:"roles"`
+}
+
+// AuthorList represents a paginated list of authors.
+type AuthorList struct {
+	// Pagination contains pagination metadata.
+	Pagination Pagination `json:"pagination"`
+	// Result is the list of authors in this page.
+	Result []Author `json:"result"`
+}
+
+// StaffMember represents a Hangar staff member.
+type StaffMember struct {
+	// Name is the staff member username.
+	Name string `json:"name"`
+	// Roles are the staff roles.
+	Roles []Role `json:"roles"`
+	// JoinDate is when they joined.
+	JoinDate time.Time `json:"joinDate"`
+}
+
+// CompactProject is a simplified project representation for user lists.
+type CompactProject struct {
+	// Namespace contains owner and slug.
+	Namespace Namespace `json:"namespace"`
+	// Stats contains project statistics.
+	Stats Stats `json:"stats"`
+	// Category is the project category.
+	Category string `json:"category"`
+}
