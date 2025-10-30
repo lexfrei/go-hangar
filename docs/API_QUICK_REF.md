@@ -1,30 +1,37 @@
 # Hangar API Quick Reference
 
 ## Base URL
+
 `https://hangar.papermc.io/api/v1`
 
 ## Authentication
+
 Most read endpoints work WITHOUT auth. Only uploads, key management, permissions, and page editing require auth.
 
 ## Common Parameters
 
 ### Pagination
+
 - `limit` - Max items (1-25, default: 25)
 - `offset` - Starting position (default: 0)
 
 ### Sorting (prefix with `-` for descending)
+
 - Projects: `views`, `downloads`, `newest`, `stars`, `updated`, `recent_downloads`, `recent_views`, `slug`
 - Users: `username`, `projectCount`, `joinDate`
 
 ## Categories
+
 `admin_tools`, `chat`, `dev_tools`, `economy`, `gameplay`, `misc`, `protection`, `world_management`
 
 ## Platforms
+
 `PAPER`, `WATERFALL`, `VELOCITY`
 
 ## Quick Endpoints
 
 ### Projects
+
 ```bash
 GET /projects?category=gameplay&platform=PAPER&sort=-downloads
 GET /projects/{slug}
@@ -38,6 +45,7 @@ GET /projects/{slug}/stats?fromDate=2024-01-01T00:00:00Z&toDate=2024-12-31T23:59
 ```
 
 ### Users
+
 ```bash
 GET /users?query=kenny&limit=10
 GET /users/{username}
@@ -47,6 +55,7 @@ GET /users/{username}/pinned
 ```
 
 ### Versions
+
 ```bash
 GET /versions/{id}
 GET /versions/hash/{sha256}
@@ -54,6 +63,7 @@ GET /versions/{id}/PAPER/download
 ```
 
 ### Other
+
 ```bash
 GET /authors?query=mini
 GET /staff
@@ -63,6 +73,7 @@ GET /pages/main/{project}
 ## Response Format
 
 All paginated responses:
+
 ```json
 {
   "pagination": {

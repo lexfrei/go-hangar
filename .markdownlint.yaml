@@ -1,0 +1,22 @@
+# Markdownlint configuration for go-hangar
+# Technical documentation needs flexibility for code examples and API references
+
+# Line length - relax for technical docs with long URLs and code
+MD013:
+  line_length: 120
+  code_blocks: false
+  tables: false
+
+# Allow emphasis used for semantic highlighting in docs
+MD036: false
+
+# Allow duplicate headings in different sections (Phase 1, Phase 2, etc.)
+MD024:
+  siblings_only: true
+
+# Allow inconsistent ordered list numbering for grouped sections
+MD029: false
+
+# Require language for code blocks (but allow plain text blocks)
+MD040:
+  allowed_languages: ["bash", "go", "json", "yaml", "text", ""]

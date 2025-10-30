@@ -11,6 +11,7 @@ The Hangar API is a comprehensive REST API for the PaperMC Hangar plugin reposit
 ## Current Implementation Status
 
 ### ✅ Already Implemented (4/40 endpoints)
+
 1. `GET /api/v1/projects` - List projects with filters
 2. `GET /api/v1/projects/{slugOrId}` - Get project details  
 3. `GET /api/v1/projects/{author}/{slugOrId}/versions` - List versions
@@ -23,6 +24,7 @@ The Hangar API is a comprehensive REST API for the PaperMC Hangar plugin reposit
 ### 1. PROJECTS (20 endpoints)
 
 #### Public Read Endpoints (No Auth Required - TESTED ✓)
+
 - `GET /api/v1/projects` - Search/list projects
   - Query params: limit, offset, sort, category, platform, owner, query, license, version, tag, member
   - Sort options: views, downloads, newest, stars, updated, recent_downloads, recent_views, slug
@@ -61,7 +63,9 @@ The Hangar API is a comprehensive REST API for the PaperMC Hangar plugin reposit
   - Query params: fromDate*, toDate*
 
 #### Alternative Paths (author/slug format)
+
 All project endpoints also support `{author}/{slugOrId}` format:
+
 - `/api/v1/projects/{author}/{slugOrId}/latest`
 - `/api/v1/projects/{author}/{slugOrId}/latestrelease`
 - `/api/v1/projects/{author}/{slugOrId}/versions`
@@ -70,6 +74,7 @@ All project endpoints also support `{author}/{slugOrId}` format:
 - `/api/v1/projects/{author}/{slugOrId}/versions/{nameOrId}/{platform}/download`
 
 #### Write Endpoints (Auth Required)
+
 - `POST /api/v1/projects/{slugOrId}/upload` - Upload new version
 - `POST /api/v1/projects/{author}/{slugOrId}/upload` - Upload new version (alt)
 
@@ -143,12 +148,14 @@ All require authentication:
 ## API Features & Characteristics
 
 ### Pagination
+
 - Standard params: `limit` (default: 25), `offset` (default: 0)
 - Response includes: `pagination: {count, limit, offset}` and `result: []`
 
 ### Filtering & Searching
 
 **Projects:**
+
 - `category`: admin_tools, chat, dev_tools, economy, gameplay, misc, protection, world_management
 - `platform`: PAPER, WATERFALL, VELOCITY
 - `version`: Minecraft version (e.g., "1.20", "1.21")
@@ -159,23 +166,29 @@ All require authentication:
 - `member`: Filter by member username
 
 **Versions:**
+
 - `channel`: Filter by channel name (e.g., "Release", "Beta", "Alpha")
 - `platform`: PAPER, WATERFALL, VELOCITY
 - `platformVersion`: Minecraft version
 - `includeHiddenChannels`: Include hidden channels (default: true)
 
 ### Sorting
+
 Projects support: views, downloads, newest, stars, updated, recent_downloads, recent_views, slug
+
 - Prefix with `-` for descending order (e.g., `-downloads`)
 
 ### Statistics
+
 - Date range queries require ISO 8601 format: `2024-01-01T00:00:00Z`
 - Returns daily breakdown of downloads/views
 - Available for both projects and versions
 
 ### Error Handling
+
 - Standard HTTP status codes
 - JSON error responses with structure:
+
   ```json
   {
     "message": "Error description",
@@ -186,10 +199,12 @@ Projects support: views, downloads, newest, stars, updated, recent_downloads, re
   ```
 
 ### Rate Limiting
+
 - No rate limiting detected in testing (5 rapid requests all succeeded)
 - No rate limit headers observed
 
 ### Authentication
+
 - **Important Finding:** Despite OpenAPI spec marking endpoints as auth-required, most read endpoints work WITHOUT authentication
 - Only actual auth-required endpoints: uploads, key management, permissions, page editing
 - Auth header format: `Authorization: Bearer {token}`
@@ -197,6 +212,7 @@ Projects support: views, downloads, newest, stars, updated, recent_downloads, re
 ## Data Structures
 
 ### Core Types (Already Implemented ✅)
+
 - Project
 - ProjectsList
 - Version
@@ -213,6 +229,7 @@ Projects support: views, downloads, newest, stars, updated, recent_downloads, re
 ### Missing Types (Need Implementation ❌)
 
 #### User
+
 ```go
 type User struct {
     ID             int64     `json:"id"`
@@ -230,6 +247,7 @@ type User struct {
 ```
 
 #### ProjectMember
+
 ```go
 type ProjectMember struct {
     User   string `json:"user"`
@@ -246,6 +264,7 @@ type Role struct {
 ```
 
 #### ProjectStats (for stats endpoint)
+
 ```go
 type ProjectStats map[string]DailyStats
 
@@ -256,6 +275,7 @@ type DailyStats struct {
 ```
 
 #### UserList
+
 ```go
 type UserList struct {
     Pagination Pagination `json:"pagination"`
@@ -264,6 +284,7 @@ type UserList struct {
 ```
 
 #### MemberList
+
 ```go
 type MemberList struct {
     Pagination Pagination      `json:"pagination"`
@@ -272,6 +293,7 @@ type MemberList struct {
 ```
 
 #### ApiKey
+
 ```go
 type ApiKey struct {
     Name            string      `json:"name"`
@@ -351,7 +373,9 @@ type ApiKey struct {
 ## Implementation Recommendations
 
 ### Query Parameter Handling
+
 Add new option types:
+
 ```go
 type ListOptions struct {
     Limit    int
@@ -388,6 +412,7 @@ type StatsOptions struct {
 ### API Client Methods
 
 **Priority 1 Methods:**
+
 ```go
 // Users
 func (c *Client) ListUsers(ctx context.Context, opts ListOptions) (*UserList, error)
@@ -411,6 +436,7 @@ func (c *Client) GetProjectWatchers(ctx context.Context, slug string, opts ListO
 ```
 
 **Priority 2 Methods:**
+
 ```go
 // Statistics
 func (c *Client) GetProjectStats(ctx context.Context, slug string, opts StatsOptions) (ProjectStats, error)
@@ -419,6 +445,7 @@ func (c *Client) GetVersionStatsByID(ctx context.Context, id int64, opts StatsOp
 ```
 
 **Priority 3 Methods:**
+
 ```go
 // Pages
 func (c *Client) GetProjectMainPage(ctx context.Context, slug string) (string, error)
@@ -426,6 +453,7 @@ func (c *Client) GetProjectPage(ctx context.Context, slug, path string) (string,
 ```
 
 **Priority 4 Methods:**
+
 ```go
 // Version Helpers
 func (c *Client) GetLatestVersion(ctx context.Context, slug string, channel string) (*Version, error)
@@ -545,9 +573,10 @@ hangar project page <slug> [--path=<page>]
 
 ## Conclusion
 
-The Hangar API is comprehensive and well-designed with 40 endpoints covering all aspects of plugin repository management. The current go-hangar implementation covers only 10% (4/40) of available functionality. 
+The Hangar API is comprehensive and well-designed with 40 endpoints covering all aspects of plugin repository management. The current go-hangar implementation covers only 10% (4/40) of available functionality.
 
 **Recommended Next Steps:**
+
 1. Implement Priority 1 endpoints (users, authors, version lookup, project social) - 13 endpoints
 2. Add comprehensive types for User, ProjectMember, ProjectStats
 3. Enhance ListOptions to support all filter parameters
