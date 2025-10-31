@@ -151,6 +151,26 @@ func (c *Client) ListVersions(ctx context.Context, owner, slug string, opts List
 	return &list, nil
 }
 
+// GetVersion retrieves a specific version of a project by version name or ID.
+func (c *Client) GetVersion(ctx context.Context, slug, versionNameOrID string) (*Version, error) {
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+	if versionNameOrID == "" {
+		return nil, errors.New("versionNameOrID cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/versions/%s",
+		c.baseURL, url.PathEscape(slug), url.PathEscape(versionNameOrID))
+
+	var version Version
+	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &version); err != nil {
+		return nil, errors.Wrap(err, "failed to get version")
+	}
+
+	return &version, nil
+}
+
 // GetDownloadURL retrieves the download URL for a specific version.
 // owner is the project owner username, slug is the project identifier, version is the version name.
 // platform specifies which platform to get the download for (e.g., "PAPER", "WATERFALL").
@@ -455,21 +475,33 @@ func (c *Client) GetProjectWatchers(ctx context.Context, slug string, opts ListO
 }
 
 // GetProjectStats retrieves daily statistics for a project within a date range.
-// from and to should be in YYYY-MM-DD format. If empty, returns all available data.
+// fromDate and toDate should be in YYYY-MM-DD format. If empty, returns all available data.
+// Dates are automatically converted to ISO 8601 format (YYYY-MM-DDT00:00:00Z) as required by the API.
+// The method automatically fetches the project owner to construct the correct API path.
 func (c *Client) GetProjectStats(ctx context.Context, slug, fromDate, toDate string) (ProjectStats, error) {
 	if slug == "" {
 		return nil, errors.New("slug cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("%s/projects/%s/stats", c.baseURL, url.PathEscape(slug))
+	// First, get the project to obtain the owner
+	project, err := c.GetProject(ctx, slug)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get project for stats")
+	}
 
-	// Build query parameters
+	// Stats endpoint requires author/slug format
+	endpoint := fmt.Sprintf("%s/projects/%s/%s/stats",
+		c.baseURL, url.PathEscape(project.Namespace.Owner), url.PathEscape(project.Namespace.Slug))
+
+	// Build query parameters - API requires ISO 8601 format
 	params := url.Values{}
 	if fromDate != "" {
-		params.Set("fromDate", fromDate)
+		// Convert YYYY-MM-DD to YYYY-MM-DDT00:00:00Z
+		params.Set("fromDate", fromDate+"T00:00:00Z")
 	}
 	if toDate != "" {
-		params.Set("toDate", toDate)
+		// Convert YYYY-MM-DD to YYYY-MM-DDT23:59:59Z
+		params.Set("toDate", toDate+"T23:59:59Z")
 	}
 
 	var fullURL string
@@ -488,7 +520,9 @@ func (c *Client) GetProjectStats(ctx context.Context, slug, fromDate, toDate str
 }
 
 // GetVersionStats retrieves daily statistics for a specific version within a date range.
-// from and to should be in YYYY-MM-DD format. If empty, returns all available data.
+// fromDate and toDate should be in YYYY-MM-DD format. If empty, returns all available data.
+// Dates are automatically converted to ISO 8601 format (YYYY-MM-DDT00:00:00Z) as required by the API.
+// The method automatically fetches the project owner to construct the correct API path.
 func (c *Client) GetVersionStats(ctx context.Context, slug, version, fromDate, toDate string) (VersionStatsData, error) {
 	if slug == "" {
 		return nil, errors.New("slug cannot be empty")
@@ -497,16 +531,25 @@ func (c *Client) GetVersionStats(ctx context.Context, slug, version, fromDate, t
 		return nil, errors.New("version cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("%s/projects/%s/versions/%s/stats",
-		c.baseURL, url.PathEscape(slug), url.PathEscape(version))
+	// First, get the project to obtain the owner
+	project, err := c.GetProject(ctx, slug)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get project for version stats")
+	}
 
-	// Build query parameters
+	// Stats endpoint requires author/slug format
+	endpoint := fmt.Sprintf("%s/projects/%s/%s/versions/%s/stats",
+		c.baseURL, url.PathEscape(project.Namespace.Owner), url.PathEscape(project.Namespace.Slug), url.PathEscape(version))
+
+	// Build query parameters - API requires ISO 8601 format
 	params := url.Values{}
 	if fromDate != "" {
-		params.Set("fromDate", fromDate)
+		// Convert YYYY-MM-DD to YYYY-MM-DDT00:00:00Z
+		params.Set("fromDate", fromDate+"T00:00:00Z")
 	}
 	if toDate != "" {
-		params.Set("toDate", toDate)
+		// Convert YYYY-MM-DD to YYYY-MM-DDT23:59:59Z
+		params.Set("toDate", toDate+"T23:59:59Z")
 	}
 
 	var fullURL string
@@ -530,27 +573,46 @@ func (c *Client) GetProjectPage(ctx context.Context, slug, pagePath string) (*Pa
 		return nil, errors.New("slug cannot be empty")
 	}
 	if pagePath == "" {
-		pagePath = "home" // Default to home page
+		return nil, errors.New("pagePath cannot be empty")
 	}
 
-	endpoint := fmt.Sprintf("%s/projects/%s/pages/%s",
-		c.baseURL, url.PathEscape(slug), url.PathEscape(pagePath))
+	endpoint := fmt.Sprintf("%s/pages/page/%s?path=%s",
+		c.baseURL, url.PathEscape(slug), url.QueryEscape(pagePath))
 
-	var page Page
-	if err := c.doRequest(ctx, http.MethodGet, endpoint, nil, &page); err != nil {
+	var content string
+	if err := c.doRawRequest(ctx, http.MethodGet, endpoint, &content); err != nil {
 		return nil, errors.Wrap(err, "failed to get project page")
 	}
 
-	return &page, nil
+	return &Page{
+		Slug:     pagePath,
+		Contents: content,
+	}, nil
 }
 
 // GetProjectMainPage retrieves the main (home) page of a project.
 func (c *Client) GetProjectMainPage(ctx context.Context, slug string) (*Page, error) {
-	return c.GetProjectPage(ctx, slug, "home")
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/pages/main/%s", c.baseURL, url.PathEscape(slug))
+
+	var content string
+	if err := c.doRawRequest(ctx, http.MethodGet, endpoint, &content); err != nil {
+		return nil, errors.Wrap(err, "failed to get project main page")
+	}
+
+	return &Page{
+		Name:     "README",
+		Slug:     "home",
+		Contents: content,
+	}, nil
 }
 
 // GetLatestVersion retrieves the latest version of a project with optional filters.
 // channel, platform, and minecraftVersion are all optional filters.
+// The API returns the version name as a string, which is then used to fetch the full Version object.
 func (c *Client) GetLatestVersion(ctx context.Context, slug, channel, platform, minecraftVersion string) (*Version, error) {
 	if slug == "" {
 		return nil, errors.New("slug cannot be empty")
@@ -558,7 +620,7 @@ func (c *Client) GetLatestVersion(ctx context.Context, slug, channel, platform, 
 
 	endpoint := fmt.Sprintf("%s/projects/%s/latest", c.baseURL, url.PathEscape(slug))
 
-	// Build query parameters
+	// Build query parameters - at least channel is required to avoid 500 error
 	params := url.Values{}
 	if channel != "" {
 		params.Set("channel", channel)
@@ -577,17 +639,33 @@ func (c *Client) GetLatestVersion(ctx context.Context, slug, channel, platform, 
 		fullURL = endpoint
 	}
 
-	var version Version
-	if err := c.doRequest(ctx, http.MethodGet, fullURL, nil, &version); err != nil {
-		return nil, errors.Wrap(err, "failed to get latest version")
+	// API returns plain version string (e.g., "5.13"), not a Version object
+	var versionName string
+	if err := c.doRawRequest(ctx, http.MethodGet, fullURL, &versionName); err != nil {
+		return nil, errors.Wrap(err, "failed to get latest version name")
 	}
 
-	return &version, nil
+	// Fetch the full Version object using the version name
+	return c.GetVersion(ctx, slug, versionName)
 }
 
 // GetLatestReleaseVersion retrieves the latest release version of a project.
+// Uses the /latestrelease endpoint which returns the version string directly.
 func (c *Client) GetLatestReleaseVersion(ctx context.Context, slug string) (*Version, error) {
-	return c.GetLatestVersion(ctx, slug, "Release", "", "")
+	if slug == "" {
+		return nil, errors.New("slug cannot be empty")
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/latestrelease", c.baseURL, url.PathEscape(slug))
+
+	// API returns plain version string (e.g., "5.13"), not a Version object
+	var versionName string
+	if err := c.doRawRequest(ctx, http.MethodGet, endpoint, &versionName); err != nil {
+		return nil, errors.Wrap(err, "failed to get latest release version name")
+	}
+
+	// Fetch the full Version object using the version name
+	return c.GetVersion(ctx, slug, versionName)
 }
 
 // doRequest performs an HTTP request with proper error handling.
@@ -629,6 +707,51 @@ func (c *Client) doRequest(ctx context.Context, method, url string, body io.Read
 			return errors.Wrap(err, "failed to decode response")
 		}
 	}
+
+	return nil
+}
+
+// doRawRequest performs an HTTP request and returns the response body as a string.
+// Used for endpoints that return plain text instead of JSON.
+func (c *Client) doRawRequest(ctx context.Context, method, url string, result *string) error {
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to create request")
+	}
+
+	// Set headers
+	req.Header.Set("Accept", "text/plain, */*")
+	req.Header.Set("User-Agent", "go-hangar/1.0")
+
+	if c.token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	}
+
+	slog.DebugContext(ctx, "making API request",
+		"method", method,
+		"url", url)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "HTTP request failed")
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			slog.WarnContext(ctx, "failed to close response body", "error", closeErr)
+		}
+	}()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return errors.Newf("API request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "failed to read response body")
+	}
+
+	*result = string(bodyBytes)
 
 	return nil
 }

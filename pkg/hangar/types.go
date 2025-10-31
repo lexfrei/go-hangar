@@ -223,8 +223,8 @@ type User struct {
 	Locked bool `json:"locked"`
 	// AvatarURL is the URL to the user's avatar.
 	AvatarURL string `json:"avatarUrl,omitempty"`
-	// Socials contains social media links.
-	Socials []Social `json:"socials,omitempty"`
+	// Socials contains social media links (platform name -> username/handle).
+	Socials map[string]string `json:"socials,omitempty"`
 }
 
 // Role represents a user role.
@@ -235,14 +235,6 @@ type Role struct {
 	Category string `json:"category"`
 	// Color is the hex color code for the role.
 	Color string `json:"color"`
-}
-
-// Social represents a social media link.
-type Social struct {
-	// Type is the social platform type.
-	Type string `json:"type"`
-	// Link is the URL to the social profile.
-	Link string `json:"link"`
 }
 
 // UserList represents a paginated list of users.
