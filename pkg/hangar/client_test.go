@@ -725,20 +725,45 @@ func TestClient_GetProjectWatchers_Success(t *testing.T) {
 func TestClient_GetProjectStats_Success(t *testing.T) {
 	t.Parallel()
 
+	projectData := `{
+		"id": 1,
+		"name": "TestProject",
+		"namespace": {"owner": "testowner", "slug": "testproject"},
+		"category": "test",
+		"description": "Test project",
+		"createdAt": "2024-01-01T00:00:00Z",
+		"lastUpdated": "2024-01-01T00:00:00Z",
+		"stats": {"views": 0, "downloads": 0},
+		"visibility": "public",
+		"avatarUrl": "",
+		"settings": {"links": [], "tags": [], "license": {"type": "MIT"}, "keywords": [], "donation": {"enable": false}}
+	}`
+
 	statsData := `{
 		"2024-01-01": {"downloads": 100, "views": 500},
 		"2024-01-02": {"downloads": 150, "views": 600}
 	}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/projects/testproject/stats", r.URL.Path)
-		query := r.URL.Query()
-		assert.Equal(t, "2024-01-01", query.Get("fromDate"))
-		assert.Equal(t, "2024-01-02", query.Get("toDate"))
+		switch r.URL.Path {
+		case "/projects/testproject":
+			// First request to get project info
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(projectData))
+		case "/projects/testowner/testproject/stats":
+			// Second request to get stats with author/slug format
+			query := r.URL.Query()
+			assert.Equal(t, "2024-01-01T00:00:00Z", query.Get("fromDate"))
+			assert.Equal(t, "2024-01-02T23:59:59Z", query.Get("toDate"))
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(statsData))
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(statsData))
+		default:
+			t.Errorf("Unexpected request to %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -756,17 +781,41 @@ func TestClient_GetProjectStats_Success(t *testing.T) {
 func TestClient_GetVersionStats_Success(t *testing.T) {
 	t.Parallel()
 
+	projectData := `{
+		"id": 1,
+		"name": "TestProject",
+		"namespace": {"owner": "testowner", "slug": "testproject"},
+		"category": "test",
+		"description": "Test project",
+		"createdAt": "2024-01-01T00:00:00Z",
+		"lastUpdated": "2024-01-01T00:00:00Z",
+		"stats": {"views": 0, "downloads": 0},
+		"visibility": "public",
+		"avatarUrl": "",
+		"settings": {"links": [], "tags": [], "license": {"type": "MIT"}, "keywords": [], "donation": {"enable": false}}
+	}`
+
 	statsData := `{
 		"2024-06-01": {"downloads": 50, "views": 200},
 		"2024-06-02": {"downloads": 75, "views": 250}
 	}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/projects/testproject/versions/1.0.0/stats", r.URL.Path)
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(statsData))
+		switch r.URL.Path {
+		case "/projects/testproject":
+			// First request to get project info
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(projectData))
+		case "/projects/testowner/testproject/versions/1.0.0/stats":
+			// Second request to get version stats with author/slug format
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(statsData))
+		default:
+			t.Errorf("Unexpected request to %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -785,18 +834,15 @@ func TestClient_GetVersionStats_Success(t *testing.T) {
 func TestClient_GetProjectPage_Success(t *testing.T) {
 	t.Parallel()
 
-	pageData := `{
-		"name": "Home",
-		"slug": "home",
-		"contents": "# Welcome\nThis is the home page"
-	}`
+	pageContent := "# Welcome\nThis is the home page"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/projects/testproject/pages/home", r.URL.Path)
+		assert.Equal(t, "/pages/page/testproject", r.URL.Path)
+		assert.Equal(t, "home", r.URL.Query().Get("path"))
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(pageData))
+		_, _ = w.Write([]byte(pageContent))
 	}))
 	defer server.Close()
 
@@ -806,7 +852,6 @@ func TestClient_GetProjectPage_Success(t *testing.T) {
 	page, err := client.GetProjectPage(ctx, "testproject", "home")
 
 	require.NoError(t, err)
-	assert.Equal(t, "Home", page.Name)
 	assert.Equal(t, "home", page.Slug)
 	assert.Contains(t, page.Contents, "Welcome")
 }
@@ -814,18 +859,14 @@ func TestClient_GetProjectPage_Success(t *testing.T) {
 func TestClient_GetProjectMainPage_Success(t *testing.T) {
 	t.Parallel()
 
-	pageData := `{
-		"name": "README",
-		"slug": "readme",
-		"contents": "# TestProject\nMain documentation"
-	}`
+	pageContent := "# TestProject\nMain documentation"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/projects/testproject/pages/home", r.URL.Path)
+		assert.Equal(t, "/pages/main/testproject", r.URL.Path)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(pageData))
+		_, _ = w.Write([]byte(pageContent))
 	}))
 	defer server.Close()
 
@@ -836,6 +877,7 @@ func TestClient_GetProjectMainPage_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "README", page.Name)
+	assert.Equal(t, "home", page.Slug)
 	assert.Contains(t, page.Contents, "TestProject")
 }
 
@@ -854,17 +896,31 @@ func TestClient_GetLatestVersion_Success(t *testing.T) {
 		"visibility": "public",
 		"reviewState": "reviewed",
 		"stats": {"totalDownloads": 1000},
-		"downloads": {}
+		"downloads": {},
+		"pluginDependencies": {},
+		"channel": {"name": "Release", "description": "", "color": "#00FF00", "flags": [], "createdAt": "2024-01-01T00:00:00Z"},
+		"pinnedStatus": "NONE"
 	}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/projects/testproject/latest", r.URL.Path)
-		query := r.URL.Query()
-		assert.Equal(t, "Release", query.Get("channel"))
+		switch r.URL.Path {
+		case "/projects/testproject/latest":
+			// First request returns plain text version string
+			query := r.URL.Query()
+			assert.Equal(t, "Release", query.Get("channel"))
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(versionData))
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("3.0.0"))
+		case "/projects/testproject/versions/3.0.0":
+			// Second request returns full Version object
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(versionData))
+		default:
+			t.Errorf("Unexpected request to %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -891,17 +947,28 @@ func TestClient_GetLatestReleaseVersion_Success(t *testing.T) {
 		"visibility": "public",
 		"reviewState": "reviewed",
 		"stats": {"totalDownloads": 2000},
-		"downloads": {}
+		"downloads": {},
+		"pluginDependencies": {},
+		"channel": {"name": "Release", "description": "", "color": "#00FF00", "flags": [], "createdAt": "2024-01-01T00:00:00Z"},
+		"pinnedStatus": "NONE"
 	}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/projects/testproject/latest", r.URL.Path)
-		query := r.URL.Query()
-		assert.Equal(t, "Release", query.Get("channel"))
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(versionData))
+		switch r.URL.Path {
+		case "/projects/testproject/latestrelease":
+			// First request returns plain text version string
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("2.5.0"))
+		case "/projects/testproject/versions/2.5.0":
+			// Second request returns full Version object
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(versionData))
+		default:
+			t.Errorf("Unexpected request to %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
