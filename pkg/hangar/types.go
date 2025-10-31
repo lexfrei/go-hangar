@@ -137,6 +137,10 @@ type Version struct {
 	Downloads map[string]DownloadInfo `json:"downloads"`
 	// PluginDependencies lists required plugin dependencies per platform.
 	PluginDependencies map[string][]PluginDependency `json:"pluginDependencies"`
+	// PlatformDependencies lists supported platform versions per platform (e.g., Paper versions).
+	PlatformDependencies map[string][]string `json:"platformDependencies"`
+	// GameVersions lists supported game versions (Minecraft versions).
+	GameVersions []string `json:"gameVersions"`
 	// Channel contains channel information.
 	Channel Channel `json:"channel"`
 	// PinnedStatus indicates if version is pinned ("CHANNEL", "VERSION", "NONE").
