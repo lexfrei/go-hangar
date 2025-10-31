@@ -17,6 +17,8 @@ CLI tool and Go library for interacting with the PaperMC Hangar API.
 - **Multiple Formats**: Table and JSON output modes
 - **API Coverage**: 27/40 endpoints (67.5% - all read operations)
 
+> 📋 See [ROADMAP.md](docs/ROADMAP.md) for detailed implementation status and future plans
+
 ## Installation
 
 ```bash
