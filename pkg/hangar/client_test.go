@@ -203,6 +203,10 @@ func TestClient_ListVersions_Success(t *testing.T) {
 				}
 			},
 			"pluginDependencies": {},
+			"platformDependencies": {
+				"PAPER": ["1.19", "1.20", "1.21"]
+			},
+			"gameVersions": ["1.19", "1.20", "1.21"],
 			"channel": {"name": "Release", "description": "Release", "color": "#14b8a6", "flags": [], "createdAt": "2024-04-21T22:07:16.479186Z"},
 			"pinnedStatus": "CHANNEL"
 		}]
@@ -229,6 +233,12 @@ func TestClient_ListVersions_Success(t *testing.T) {
 	assert.Len(t, versions.Result, 1)
 	assert.Equal(t, "2.0.1", versions.Result[0].Name)
 	assert.Equal(t, "testowner", versions.Result[0].Author)
+
+	// Test new fields
+	assert.NotNil(t, versions.Result[0].PlatformDependencies)
+	assert.Contains(t, versions.Result[0].PlatformDependencies, "PAPER")
+	assert.Equal(t, []string{"1.19", "1.20", "1.21"}, versions.Result[0].PlatformDependencies["PAPER"])
+	assert.Equal(t, []string{"1.19", "1.20", "1.21"}, versions.Result[0].GameVersions)
 }
 
 func TestClient_GetDownloadURL_Success(t *testing.T) {
