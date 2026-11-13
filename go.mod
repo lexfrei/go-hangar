@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/cockroachdb/errors v1.14.0
-	github.com/jedib0t/go-pretty/v6 v6.8.3
+	github.com/jedib0t/go-pretty/v6 v6.9.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
@@ -25,6 +25,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
